@@ -11,11 +11,12 @@ def get_api_key():
         raise RuntimeError("API Key not found")
     return api_key
 
-def parse_user_prompt():
+def parse_args():
     parser = argparse.ArgumentParser(description="AI Chatbot")
     parser.add_argument("user_prompt", type=str, help="User Prompt")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
-    return args.user_prompt
+    return args
 
 def prompt_ai(client, prompts):
     ''' prompt ai
@@ -31,13 +32,15 @@ def prompt_ai(client, prompts):
 def main():
     api_key = get_api_key()
     client = genai.Client(api_key=api_key)
-    
-    userprompt = parse_user_prompt()
-    messages = [types.Content(role="user", parts=[types.Part(text=userprompt)])]
+    cli_args = parse_args()
+
+    user_prompt = cli_args.user_prompt
+    messages = [types.Content(role="user", parts=[types.Part(text=user_prompt)])]
     response, metadata = prompt_ai(client, messages)
     
-    print(f"User prompt: {userprompt}")
-    print(f"Prompt tokens: {metadata.prompt_token_count}\nResponse tokens: {metadata.candidates_token_count}")
+    if cli_args.verbose:
+        print(f"User prompt: {user_prompt}")
+        print(f"Prompt tokens: {metadata.prompt_token_count}\nResponse tokens: {metadata.candidates_token_count}")
     print(f"Response: {response.text}")
 
 
