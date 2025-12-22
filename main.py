@@ -2,6 +2,7 @@ import os
 import argparse
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 def get_api_key():
     load_dotenv()
@@ -16,8 +17,12 @@ def parse_user_prompt():
     args = parser.parse_args()
     return args.user_prompt
 
-def prompt_ai(client, prompt):
-    response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+def prompt_ai(client, prompts):
+    ''' prompt ai
+        client: genai client
+        prompts: [] list of messages to prompt with
+    '''
+    response = client.models.generate_content(model="gemini-2.5-flash", contents=prompts)
     if not response:
         raise RuntimeError("failed API request")
     metadata = response.usage_metadata
@@ -28,7 +33,8 @@ def main():
     client = genai.Client(api_key=api_key)
     
     userprompt = parse_user_prompt()
-    response, metadata = prompt_ai(client, userprompt)
+    messages = [types.Content(role="user", parts=[types.Part(text=userprompt)])]
+    response, metadata = prompt_ai(client, messages)
     
     print(f"User prompt: {userprompt}")
     print(f"Prompt tokens: {metadata.prompt_token_count}\nResponse tokens: {metadata.candidates_token_count}")
