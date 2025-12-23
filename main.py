@@ -1,13 +1,11 @@
 import os
 import argparse
+from re import X
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from prompts import system_prompt
-from functions.get_files_info import schema_get_files_info
-from functions.get_file_content import schema_get_file_content
-from functions.write_file import schema_write_file
-from functions.run_python_file import schema_run_python_file
+from functions import call_functions
 
 
 def get_api_key():
@@ -31,19 +29,14 @@ def prompt_ai(client, prompts):
     client: genai client
     prompts: [] list of messages to prompt with
     """
-    available_functions = types.Tool(
-        function_declarations=[
-            schema_get_files_info,
-            schema_run_python_file,
-            schema_write_file,
-            schema_get_file_content,
-        ],
-    )
+
+    available_functions = call_functions.available_functions
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompts,
         config=types.GenerateContentConfig(
-            tools=[available_functions], system_instruction=system_prompt
+            tools=[available_functions],
+            system_instruction=system_prompt,
         ),
     )
     if not response:
@@ -69,8 +62,26 @@ def main():
         )
 
     if function_calls:
+        function_results = []
         for function_call in function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
+            function_call_result = call_functions.call_functions(function_call)
+            if not function_call_result.parts:
+                raise Exception("Error: parts (function_result.parts) is empty!")
+            if not function_call_result.parts[0].function_response:
+                raise Exception(
+                    "Error: function_response (function_result.parts[0].function_response) is empty!"
+                )
+            if (
+                not function_call_result.parts[0].function_response.response
+                or function_call_result.parts[0].function_response.response is None
+            ):
+                raise Exception(
+                    "Error: response (function_result.parts[0].function_response.response) is empty!"
+                )
+            function_results.append(function_call_result.parts[0])
+            if cli_args.verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+
     else:
         print(f"Response: {response.text}")
 
