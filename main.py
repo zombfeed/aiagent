@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from prompts import system_prompt
+from functions.get_files_info import schema_get_files_info
 
 
 def get_api_key():
@@ -27,15 +28,21 @@ def prompt_ai(client, prompts):
     client: genai client
     prompts: [] list of messages to prompt with
     """
+    available_functions = types.Tool(
+        function_declarations=[schema_get_files_info],
+    )
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompts,
-        config=types.GenerateContentConfig(system_instruction=system_prompt),
+        config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+        ),
     )
     if not response:
         raise RuntimeError("failed API request")
     metadata = response.usage_metadata
-    return response, metadata
+    function_calls = response.function_calls
+    return response, metadata, function_calls
 
 
 def main():
@@ -45,14 +52,19 @@ def main():
 
     user_prompt = cli_args.user_prompt
     messages = [types.Content(role="user", parts=[types.Part(text=user_prompt)])]
-    response, metadata = prompt_ai(client, messages)
+    response, metadata, function_calls = prompt_ai(client, messages)
 
     if cli_args.verbose:
         print(f"User prompt: {user_prompt}")
         print(
             f"Prompt tokens: {metadata.prompt_token_count}\nResponse tokens: {metadata.candidates_token_count}"
         )
-    print(f"Response: {response.text}")
+
+    if function_calls:
+        for function_call in function_calls:
+            print(f"Calling function: {function_call.name}({function_call.args})")
+    else:
+        print(f"Response: {response.text}")
 
 
 if __name__ == "__main__":
