@@ -3,6 +3,8 @@ import argparse
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from prompts import system_prompt
+
 
 def get_api_key():
     load_dotenv()
@@ -11,6 +13,7 @@ def get_api_key():
         raise RuntimeError("API Key not found")
     return api_key
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="AI Chatbot")
     parser.add_argument("user_prompt", type=str, help="User Prompt")
@@ -18,16 +21,22 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def prompt_ai(client, prompts):
-    ''' prompt ai
-        client: genai client
-        prompts: [] list of messages to prompt with
-    '''
-    response = client.models.generate_content(model="gemini-2.5-flash", contents=prompts)
+    """prompt ai
+    client: genai client
+    prompts: [] list of messages to prompt with
+    """
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompts,
+        config=types.GenerateContentConfig(system_instruction=system_prompt),
+    )
     if not response:
         raise RuntimeError("failed API request")
     metadata = response.usage_metadata
     return response, metadata
+
 
 def main():
     api_key = get_api_key()
@@ -37,10 +46,12 @@ def main():
     user_prompt = cli_args.user_prompt
     messages = [types.Content(role="user", parts=[types.Part(text=user_prompt)])]
     response, metadata = prompt_ai(client, messages)
-    
+
     if cli_args.verbose:
         print(f"User prompt: {user_prompt}")
-        print(f"Prompt tokens: {metadata.prompt_token_count}\nResponse tokens: {metadata.candidates_token_count}")
+        print(
+            f"Prompt tokens: {metadata.prompt_token_count}\nResponse tokens: {metadata.candidates_token_count}"
+        )
     print(f"Response: {response.text}")
 
 
